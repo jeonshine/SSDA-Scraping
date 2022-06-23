@@ -9,7 +9,7 @@ def connect_gspread(file_name, email=None):
     'https://spreadsheets.google.com/feeds',
     'https://www.googleapis.com/auth/drive',
     ]
-    json_file_name = 'omega-post-339414-4dcaa7da8bdb.json'
+    json_file_name = 'lxper.json'
     credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file_name, scope)
     gc = gspread.authorize(credentials)
 
@@ -196,7 +196,7 @@ def get_book_page_src(browser):
     return page_src_list
 
 def main():
-    sheets = connect_gspread(file_name="SSDA Scraping")
+    sheets = connect_gspread(file_name="SSDA Scraping Tool")
     
     input_sheet = sheets.worksheet("데이터 입력")
     num_list = input_sheet.col_values(1)[1:]
