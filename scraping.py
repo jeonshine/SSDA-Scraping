@@ -2,14 +2,24 @@ from selenium import webdriver
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import chromedriver_autoinstaller
-import time, random, re
+import time, random, re, sys, os
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 def connect_gspread(file_name, email=None):
     scope = [
     'https://spreadsheets.google.com/feeds',
     'https://www.googleapis.com/auth/drive',
     ]
-    json_file_name = 'lxper.json'
+    json_file_name = resource_path('./lxper.json')
     credentials = ServiceAccountCredentials.from_json_keyfile_name(json_file_name, scope)
     gc = gspread.authorize(credentials)
 
