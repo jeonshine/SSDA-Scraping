@@ -3,6 +3,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 import chromedriver_autoinstaller
 import time, random, re, sys, os
+import urllib.request as req
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -33,32 +34,31 @@ def connect_gspread(file_name, email=None):
 
     return sheets
 
-def write_gspread(output_sheet, books):
+def write_gspread(output_sheet, num, book):
     colunms = [["_index", "_type", "_title", "_author", "search_sentence", "searched_sentence", "book_link", "_cover", "matched_text_page", "whole_text_page", "text_page_count", "downloaded"]]
     output_sheet.update("A1:L1", colunms)
 
-    for index, book in enumerate(books):
-        row = index + 2
+    row = int(num) - 16
+    if num == 43:
+        row = num - 17
 
-        if book["empty"]:
-            output_sheet.update_cell(row,1, book["index"])
-            output_sheet.update_cell(row,2, book["type"])
+    if book["empty"]:
+        output_sheet.update_cell(row,1, book["index"])
+        output_sheet.update_cell(row,2, book["type"])
 
-        if not book["empty"]:
-            output_sheet.update_cell(row,1, book["index"])
-            output_sheet.update_cell(row,2, book["type"])
-            output_sheet.update_cell(row,3, book["title"])
-            output_sheet.update_cell(row,4, book["author"])
-            output_sheet.update_cell(row,5, book["search_sentence"])
-            output_sheet.update_cell(row,6, book["searched_sentence"])
-            output_sheet.update_cell(row,7, book["book_link"])
-            output_sheet.update_cell(row,8, book["cover_page_src"])
-            output_sheet.update_cell(row,9, book["matched_page_src"])
-            output_sheet.update_cell(row,10, " ".join(book["page_src_list"]))
-            output_sheet.update_cell(row,11, len(book["page_src_list"]))
-            output_sheet.update_cell(row,12, "no")
-    
-        index += 1
+    if not book["empty"]:
+        output_sheet.update_cell(row,1, book["index"])
+        output_sheet.update_cell(row,2, book["type"])
+        output_sheet.update_cell(row,3, book["title"])
+        output_sheet.update_cell(row,4, book["author"])
+        output_sheet.update_cell(row,5, book["search_sentence"])
+        output_sheet.update_cell(row,6, book["searched_sentence"])
+        output_sheet.update_cell(row,7, book["book_link"])
+        output_sheet.update_cell(row,8, book["cover_page_src"])
+        output_sheet.update_cell(row,9, book["matched_page_src"])
+        output_sheet.update_cell(row,10, " ".join(book["page_src_list"]))
+        output_sheet.update_cell(row,11, len(book["page_src_list"]))
+        output_sheet.update_cell(row,12, "no")
 
 def get_book(browser, sentence):
     
@@ -78,7 +78,12 @@ def get_book(browser, sentence):
             book["search_sentence"] = sentence
             book["searched_sentence"] = searched_sentence
             book["book_link"] = browser.current_url
-            book["page_src_list"] = get_book_page_src(browser)
+
+            try:
+                book["page_src_list"] = get_book_page_src(browser)
+            except:
+                book["page_src_list"] = ""
+
             book["empty"] = False
 
             return book
@@ -189,6 +194,7 @@ def get_book_page_src(browser):
         pages = browser.find_elements_by_class_name("pageImageDisplay")
 
         for page in pages:
+
             page_src = page.find_element_by_tag_name("img").get_attribute("src")
 
             if page_src and page_src not in page_src_list:     
@@ -205,6 +211,52 @@ def get_book_page_src(browser):
     browser.back()
     return page_src_list
 
+def image_download(output_sheet):
+    WORKING_DIR = r"\\192.168.219.102\LXPER-Share2\콘텐츠사업본부"
+    os.chdir(WORKING_DIR)
+
+    index_col = output_sheet.find("_index").col
+    index_list = output_sheet.col_values(index_col)[1:]
+    
+    cover_col = output_sheet.find("_cover").col
+    cover_list = output_sheet.col_values(cover_col)[1:]
+
+    matched_page_col = output_sheet.find("matched_text_page").col
+    matched_page_list = output_sheet.col_values(matched_page_col)[1:]
+    
+    whole_page_col = output_sheet.find("whole_text_page").col
+    whole_page_list = output_sheet.col_values(whole_page_col)[1:]
+    
+    for index, cover_src, matched_src, whole_srcs in zip(index_list, cover_list, matched_page_list, whole_page_list):
+
+        if whole_srcs:
+            grade = index.split("_")[0][-1]
+            year = index.split("_")[1]
+            month = index.split("_")[2]
+            number = index.split("_")[3]
+            save_path = f"./google_books/{grade}학년/{year}년도/{month}월/{number}"
+
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+            req.urlretrieve(cover_src, f"{save_path}\{index}_cover")
+            req.urlretrieve(matched_src, f"{save_path}\{index}_matched")
+            time.sleep(random.uniform(0,1))
+
+            splited_whole_src = whole_srcs.split(" ")
+            for counter, page_src in enumerate(splited_whole_src):
+                
+                if counter < 9:
+                    tmp = f'00{counter + 1}'
+
+                elif counter < 99:
+                    tmp = f'0{counter + 1}'
+
+                try:
+                    req.urlretrieve(page_src, f"{save_path}\{index}_{tmp}")
+                except:
+                    print("error")
+                
 def main():
     sheets = connect_gspread(file_name="SSDA Scraping Tool")
     
@@ -233,7 +285,6 @@ def main():
     browser.get(google_books_url)
     browser.implicitly_wait(10)
 
-    books=[]
     for num, type, f_sentence, s_sentence in zip(num_list, type_list, f_sentence_list, s_sentence_list):
 
         if f_sentence:
@@ -242,7 +293,7 @@ def main():
             if book:
                 book["type"] = type
                 book["index"] = f"H{grade}_{year}_{month}_{num}"
-                books.append(book)
+                write_gspread(output_sheet, num, book)
                 browser.back()
                 time.sleep(random.uniform(2,3))
 
@@ -255,7 +306,7 @@ def main():
                 if book:
                     book["type"] = type
                     book["index"] = f"H{grade}_{year}_{month}_{num}"
-                    books.append(book)
+                    write_gspread(output_sheet, num, book)
                     browser.back()
                     time.sleep(random.uniform(2,3))
                 
@@ -264,9 +315,10 @@ def main():
                     empty_book = {"empty":True}
                     empty_book["type"] = type
                     empty_book["index"] = f"H{grade}_{year}_{month}_{num}"
-                    books.append(empty_book)
+                    write_gspread(output_sheet, num, empty_book)
                     time.sleep(random.uniform(2,3))
 
-    write_gspread(output_sheet, books)
+    browser.quit()
+    # image_download(output_sheet)
 
 main()
