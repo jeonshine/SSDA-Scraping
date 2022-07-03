@@ -5,7 +5,7 @@
         수능과 모의고사에 출제된 문제의 문장을 검색해
         원전(source)을 찾아 데이터를 긁어오는 프로젝트입니다.
 
-+ 출처 : [구글북스](https://books.google.co.kr/]
++ 출처 : [구글북스](https://books.google.co.kr/)
 
 + 수집 데이터
   - 제목  
